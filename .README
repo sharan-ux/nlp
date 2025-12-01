@@ -1,0 +1,163 @@
+# NLP Text Classifier (Bug / Feature / Other)
+
+This project is a simple NLP (Natural Language Processing) classifier that categorizes user issue sentences into three categories:
+
+- **Bug**
+- **Feature Request**
+- **Other**
+
+It uses the TF-IDF vectorization technique to convert text into numerical form and a Naive Bayes classifier for prediction.  
+This project is beginner-friendly and demonstrates the basic NLP workflow.
+
+---
+
+## 🚀 Features
+- Convert text into numerical vectors using **TF-IDF**
+- Train a classifier using **Naive Bayes**
+- Predict category of new user inputs
+- Simple dataset included (can be expanded)
+- Easy to run inside a Python **virtual environment**
+
+---
+
+## 📦 Installation
+
+### 1. Clone the repository
+
+git clone https://github.com/sharan-ux/nlp.git
+cd nlp
+`
+
+### 2. Create a virtual environment
+
+
+python -m venv venv
+
+
+### 3. Activate the virtual environment
+
+**Windows:**
+
+
+venv\Scripts\activate
+
+
+**macOS/Linux:**
+
+
+source venv/bin/activate
+
+
+### 4. Install dependencies
+
+
+pip install -r requirements.txt
+
+
+If you do not have a `requirements.txt`, you can install manually:
+
+
+pip install scikit-learn
+
+
+---
+
+## 🧠 How It Works
+
+1. A small dataset of labeled sentences is provided
+2. TF-IDF converts text → numerical vectors
+3. Naive Bayes learns patterns from the examples
+4. The classifier predicts the label for new sentences
+
+---
+
+## ▶️ Running the Model
+
+Run the script:
+
+
+python model.py
+
+
+Expected output includes:
+
+* Model accuracy
+* Test predictions
+* Predictions for new example sentences
+
+---
+
+## 📁 Project Structure
+
+
+nlp/
+│
+├── model.py             # Main NLP classification script
+├── requirements.txt      # Project dependencies
+├── .gitignore            # Ignored files (venv, pycache)
+└── README.md             # Project documentation
+
+
+---
+
+## ✨ Example Predictions
+
+Input:
+
+
+"The app crashes on start"
+
+
+Output:
+
+
+bug
+
+
+Input:
+
+
+"Please add dark mode"
+
+
+Output:
+
+
+feature
+
+
+Input:
+
+
+"The UI looks nice"
+
+
+Output:
+
+
+other
+
+
+---
+
+## 🛠️ Future Improvements
+
+* Larger training dataset
+* Save and load the trained model
+* Add a simple web UI
+* Convert to a Flask / FastAPI API
+* Add more classification categories
+
+---
+
+## 📜 License
+
+This project is free to use and modify for educational purposes.
+
+---
+
+## 🤝 Contributing
+
+Pull requests and improvements are welcome!
+
+

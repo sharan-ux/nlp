@@ -3,7 +3,7 @@ import numpy as np
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
-from sklearn.svm import SVC
+from sklearn.naive_bayes import ComplementNB
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.preprocessing import LabelEncoder
 from datasets import load_dataset
@@ -98,7 +98,7 @@ def prepare_data():
     )
 
     vectorizer = TfidfVectorizer(
-        max_features=10000,
+        max_features=5000,
         stop_words='english',
         ngram_range=(1, 2),
         min_df=2,
@@ -111,8 +111,8 @@ def prepare_data():
     return X_train_tfidf, X_test_tfidf, y_train, y_test, vectorizer, label_encoder
 
 def train_model(X_train, y_train):
-    # class_weight='balanced' helps with imbalanced datasets
-    model = SVC(kernel='rbf', C=1.0, gamma='scale', probability=True, random_state=42, class_weight='balanced')
+    # ComplementNB works better for imbalanced datasets
+    model = ComplementNB(alpha=1.0)
     model.fit(X_train, y_train)
     return model
 

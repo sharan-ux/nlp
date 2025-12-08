@@ -3,7 +3,7 @@ import numpy as np
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
-from sklearn.naive_bayes import MultinomialNB
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.preprocessing import LabelEncoder
 from datasets import load_dataset
@@ -67,9 +67,9 @@ def load_and_preprocess_data():
     texts = [texts[i] for i in valid_indices]
     labels = [labels[i] for i in valid_indices]
 
-    # Limit to 100 samples for faster training
-    texts = texts[:100]
-    labels = labels[:100]
+    # Limit to 1000 samples for faster training
+    texts = texts[:1000]
+    labels = labels[:1000]
 
     if len(texts) == 0:
         raise ValueError("No valid text samples found after cleaning!")
@@ -111,7 +111,14 @@ def prepare_data():
     return X_train_tfidf, X_test_tfidf, y_train, y_test, vectorizer, label_encoder
 
 def train_model(X_train, y_train):
-    model = MultinomialNB(alpha=1.0)
+    # Logistic Regression with class balancing for imbalanced data
+    model = LogisticRegression(
+        C=1.0,
+        solver='lbfgs',
+        max_iter=1000,
+        class_weight='balanced',
+        random_state=42
+    )
     model.fit(X_train, y_train)
     return model
 

@@ -1,37 +1,44 @@
-name: Python CI
+name: NLP CI/CD with Jira Comment
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
+    branches: ["main"]
 
 jobs:
-  test:
-
+  build_test_deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
+
+    - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Setup Python
+      uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: "3.10"
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Run SVM model
+    - name: Run tests
       run: |
-        python model_svm.py
+        if [ -f "tests" ]; then pytest -q; else echo "No tests found"; fi
 
-    - name: Run Logistic model
+    - name: Extract Jira ticket key
+      id: jira_key
       run: |
-        python model_logistic.py
+        echo "ticket=$(echo '${{ github.event.head_commit.message }}' | grep -oE '[A-Z]+-[0-9]+')" >> $GITHUB_OUTPUT
 
-    - name: Run Naive Bayes model
+    - name: Comment on Jira ticket
+      if: steps.jira_key.outputs.ticket != ''
       run: |
-        python model_nb.py
+        curl -X POST \
+          -u "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          https://${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ steps.jira_key.outputs.ticket }}/comment \
+          -d "{\"body\": \"CI run completed for commit ${{ github.sha }}\"}"

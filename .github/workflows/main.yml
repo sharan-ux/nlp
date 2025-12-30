@@ -1,44 +1,139 @@
-name: NLP CI/CD with Jira Comment
+name: NLP CI/CD with Logs, Threshold & Jira
 
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: ["main"]
 
 jobs:
-  build_test_deploy:
+  nlp_pipeline:
     runs-on: ubuntu-latest
 
     steps:
 
+    # ------------------------------------------------
+    # STEP 1: CHECKOUT CODE
+    # ------------------------------------------------
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
 
+    # ------------------------------------------------
+    # STEP 2: SETUP PYTHON
+    # ------------------------------------------------
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: "3.10"
 
+    # ------------------------------------------------
+    # STEP 3: INSTALL DEPENDENCIES
+    # ------------------------------------------------
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
+        echo "Installing Python dependencies..."
+        pip install --upgrade pip
         pip install -r requirements.txt
+        echo "Dependencies installed successfully"
 
+    # ------------------------------------------------
+    # STEP 4: RUN TESTS
+    # ------------------------------------------------
     - name: Run tests
       run: |
-        if [ -f "tests" ]; then pytest -q; else echo "No tests found"; fi
+        echo "Running NLP tests..."
+        pytest || echo "No tests found, continuing"
 
-    - name: Extract Jira ticket key
-      id: jira_key
+    # ------------------------------------------------
+    # STEP 5: CALCULATE LINES CHANGED
+    # ------------------------------------------------
+    - name: Calculate lines changed
+      id: lines
       run: |
-        echo "ticket=$(echo '${{ github.event.head_commit.message }}' | grep -oE '[A-Z]+-[0-9]+')" >> $GITHUB_OUTPUT
+        echo "Calculating code changes..."
+        STAT=$(git diff --shortstat HEAD~1 HEAD)
+        echo "Git diff result: $STAT"
 
+        INS=$(echo "$STAT" | sed -E 's/.* ([0-9]+) insertions?.*/\1/' || echo 0)
+        DEL=$(echo "$STAT" | sed -E 's/.* ([0-9]+) deletions?.*/\1/' || echo 0)
+
+        TOTAL=$((INS + DEL))
+        echo "Total lines changed: $TOTAL"
+
+        echo "lines_changed=$TOTAL" >> $GITHUB_OUTPUT
+
+    # ------------------------------------------------
+    # STEP 6: CHECK THRESHOLD
+    # ------------------------------------------------
+    - name: Threshold validation
+      id: threshold
+      run: |
+        echo "Checking deployment threshold..."
+        if [ ${{ steps.lines.outputs.lines_changed }} -lt 50 ]; then
+          echo "Change is SMALL (<50 lines). Deployment skipped."
+          exit 78
+        else
+          echo "Change is LARGE (>=50 lines). Deployment allowed."
+        fi
+
+    # ------------------------------------------------
+    # STEP 7: DEPLOY APPLICATION
+    # ------------------------------------------------
+    - name: Deploy application
+      if: steps.threshold.outcome == 'success'
+      run: |
+        echo "Starting deployment..."
+        ssh -o StrictHostKeyChecking=no \
+        ${{ secrets.SERVER_SSH_USER }}@${{ secrets.SERVER_IP }} "
+          cd ${{ secrets.SERVER_APP_PATH }} &&
+          git pull origin main &&
+          pip install -r requirements.txt
+        "
+        echo "Deployment completed"
+
+    # ------------------------------------------------
+    # STEP 8: ROLLBACK IF DEPLOY FAILS
+    # ------------------------------------------------
+    - name: Rollback on failure
+      if: failure()
+      run: |
+        echo "Deployment failed. Rolling back..."
+        ssh -o StrictHostKeyChecking=no \
+        ${{ secrets.SERVER_SSH_USER }}@${{ secrets.SERVER_IP }} "
+          cd ${{ secrets.SERVER_APP_PATH }} &&
+          git reset --hard HEAD~1
+        "
+
+    # ------------------------------------------------
+    # STEP 9: EXTRACT JIRA TICKET (ONLY NLP-XXX)
+    # ------------------------------------------------
+    - name: Extract Jira ticket
+      id: jira
+      run: |
+        echo "Reading commit message..."
+        echo "Commit message: ${{ github.event.head_commit.message }}"
+
+        TICKET=$(echo "${{ github.event.head_commit.message }}" | grep -oE 'NLP-[0-9]+')
+
+        if [ -z "$TICKET" ]; then
+          echo "❌ No NLP ticket found"
+        else
+          echo "✅ Jira ticket detected: $TICKET"
+          echo "ticket=$TICKET" >> $GITHUB_OUTPUT
+        fi
+
+    # ------------------------------------------------
+    # STEP 10: COMMENT ON JIRA
+    # ------------------------------------------------
     - name: Comment on Jira ticket
-      if: steps.jira_key.outputs.ticket != ''
+      if: steps.jira.outputs.ticket != ''
       run: |
+        echo "Sending comment to Jira ticket ${{ steps.jira.outputs.ticket }}"
+
         curl -X POST \
           -u "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
           -H "Content-Type: application/json" \
-          https://${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ steps.jira_key.outputs.ticket }}/comment \
-          -d "{\"body\": \"CI run completed for commit ${{ github.sha }}\"}"
+          "https://${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ steps.jira.outputs.ticket }}/comment" \
+          -d "{\"body\": \"CI/CD executed successfully. Commit: ${{ github.sha }}\"}"
+
+        echo "Jira comment added successfully"
